@@ -1,5 +1,6 @@
 import abc
 import itertools
+from pprint import pprint
 from future.utils import with_metaclass
 from .choice import (ActionChoice, MinorImprovementChoice, SpaceChoice, OccupationChoice, FencingChoice, MajorImprovementChoice, PlowingChoice, StableBuildingChoice, HouseBuildingChoice, ResourceTradingChoice, SowingChoice)
 from . import const, cards
@@ -10,83 +11,85 @@ from .errors import (
   AgricolaPoorlyFormed, AgricolaImpossible)
 
 class Step(with_metaclass(abc.ABCMeta, object)):
-    def __init__(self):
-        pass
+    def __init__(self, player):
+        self.player = player
 
     @abc.abstractmethod
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         pass
 
     # returns next stack items
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         return None
 
 class ActionSelectionStep(Step):
-    def get_required_choice(self, game, player):
-        return ActionChoice(game, player)
+    def get_required_choice(self, game):
+        return ActionChoice(game, self.player)
 
-    def effect(self, game, player, choice):
-        game.actions_taken[choice.choice_value] = player.index
+    def effect(self, game, choice):
+        game.actions_taken[choice.choice_value] = self.player.index
         game.actions_remaining.remove(choice.choice_value)
-        game.players[player.index].turn_left -= 1
-        return choice.choice_value.effect(player)
+        game.players[self.player.index].turn_left -= 1
+        return choice.choice_value.effect(self.player)
 
 class PlayOccupationStep(Step):
-    def get_required_choice(self, game, player):
-        return OccupationChoice(game, player)
+    def get_required_choice(self, game):
+        return OccupationChoice(game, self.player)
 
-    def effect(self, game, player, choice):
-        player.play_occupation(choice.choice_value, game)
-        return choice.choice_value.check_and_apply(player)
+    def effect(self, game, choice):
+        self.player.play_occupation(choice.choice_value, game)
+        return choice.choice_value.check_and_apply(self.player)
 
 class PlayMajorImprovementStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return MajorImprovementChoice(game, player)
+        return MajorImprovementChoice(game, self.player)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         if not choice.choice_value:
             return
         if isinstance(choice.choice_value, cards.MinorImprovement):
-            player.play_minor_improvement(choice.choice_value, game)
+            self.player.play_minor_improvement(choice.choice_value, game)
         if isinstance(choice.choice_value, cards.MajorImprovement):
-            player.play_major_improvement(choice.choice_value, game)
-        return choice.choice_value.check_and_apply(player)
+            self.player.play_major_improvement(choice.choice_value, game)
+        return choice.choice_value.check_and_apply(self.player)
 
 class PlayMinorImprovementStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return MinorImprovementChoice(game, player)
+        return MinorImprovementChoice(game, self.player)
 
-    def effect(self, game, player, choice):
-        player.play_minor_improvement(choice.choice_value, game)
-        return choice.choice_value.check_and_apply(player)
+    def effect(self, game, choice):
+        self.player.play_minor_improvement(choice.choice_value, game)
+        return choice.choice_value.check_and_apply(self.player)
 
 class ResourcePayingStep(Step):
-  def __init__(self, cost, trigger_name):
-    self.trigger_name = trigger_name
-    self.resources = [cost]
+    def __init__(self, player, cost, trigger_name):
+        super(ResourcePayingStep, self).__init__(player)
+        self.trigger_name = trigger_name
+        self.resources = [cost]
 
-  def get_required_choice(self, game, player): 
-    # TODO make choice
-    return None
+    def get_required_choice(self, game): 
+        # TODO make choice
+        return None
 
-  def effect(self, game, player, choice):
-    #TODO use choice
-    selected_candidate = self.resources[0]
-    player.change_state("", cost=selected_candidate)
+    def effect(self, game, choice):
+        #TODO use choice
+        selected_candidate = self.resources[0]
+        self.player.change_state("", cost=selected_candidate)
 
 class ResourceTradingStep(Step):
-    def get_required_choice(self, game, player):
-        return ResourceTradingChoice(game, player, defaultdict(int), None, const.trigger_event_names.resource_trading)
+    def get_required_choice(self, game):
+        return ResourceTradingChoice(game, self.player, defaultdict(int), None, const.trigger_event_names.resource_trading)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         selected_summary = choice.selected_summarized_candidate
         selected_candidate = choice.selected_candidate
-        player.change_state("", change=selected_summary)
+        self.player.change_state("", change=selected_summary)
 
 class TakingResourcesFromActionStep(Step):
-    def __init__(self, resources, executed_action):
+    def __init__(self, player, resources, executed_action):
+        super(TakingResourcesFromActionStep, self).__init__(player)
         self.resources = resources.copy()
         self.executed_action = executed_action
         assert type(self.resources) == defaultdict
@@ -94,11 +97,11 @@ class TakingResourcesFromActionStep(Step):
     def __str__(self):
         return '<%s>(%s)' % (self.__class__.__name__, str(self.resources)) 
 
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO trigger event
-        return ResourceTradingChoice(game, player, self.resources, self.executed_action, const.trigger_event_names.take_resources_from_action)
+        return ResourceTradingChoice(game, self.player, self.resources, self.executed_action, const.trigger_event_names.take_resources_from_action)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         selected_summary = choice.selected_summarized_candidate
         selected_candidate = choice.selected_candidate
         #if True or 'resources_to_board' in selected_candidate:
@@ -106,64 +109,62 @@ class TakingResourcesFromActionStep(Step):
             self.executed_action.add_resources(selected_candidate['resources_to_board']) # take leftover back to the action if it exists.
             # raise NotImplementedError
 
-        player.change_state("", change=selected_summary)
-        # todo: ここでadditional_stepsからstepを取り出して返す
+        self.player.change_state("", change=selected_summary)
 
-        #if selected_candidate['additional_steps']:
-            #raise NotImplementedError
         if 'additional_steps' not in selected_candidate:
-            return None
+          return []
         return selected_candidate['additional_steps']
 
 class RenovatingStep(Step):
-  def __init__(self, resource):
+  def __init__(self, player, resource):
+    super(RenovatingStep, self).__init__(player)
     self.resource = resource
 
-  def get_required_choice(self, game, player):
+  def get_required_choice(self, game):
     return None
 
-  def effect(self, game, player, choice):
-    player.upgrade_house(self.resource)
+  def effect(self, game, choice):
+    self.player.upgrade_house(self.resource)
 
 class PlowingStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return PlowingChoice(game, player)
+        return PlowingChoice(game, self.player)
 
-    def effect(self, game, player, choice):
-        player.plow_fields(choice.choice_value)
+    def effect(self, game, choice):
+        self.player.plow_fields(choice.choice_value)
 
 class HouseBuildingStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return HouseBuildingChoice(game, player)
+        return HouseBuildingChoice(game, self.player)
     
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         if choice.choice_value:
-            player.build_rooms(choice.choice_value)
-            return [HouseBuildingStep()]
+          self.player.build_rooms(choice.choice_value)
+          return [HouseBuildingStep(self.player)]
 
 class StableBuildingStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return StableBuildingChoice(game, player)
+        return StableBuildingChoice(game, self.player)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         if choice.choice_value:
-            player.build_stables(choice.choice_value, 2)
-            return [StableBuildingStep()]
+            self.player.build_stables(choice.choice_value, 2)
+            return [StableBuildingStep(self.player)]
 
 class SowingStep(Step):
-    def get_required_choice(self, game, player):
-        return SowingChoice(game, player)
+    def get_required_choice(self, game):
+        return SowingChoice(game, self.player)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         selected_candidate = choice.selected_candidate
-        player.change_state("", change=selected_candidate["sowing_resources"])
+        self.player.change_state("", change=selected_candidate["sowing_resources"])
         # sow
         for sowing_field in selected_candidate["sowing_fields"]:
             sow_completed = False
-            for field in player._fields:
+            for field in self.player._fields:
                 if field.space == sowing_field["field_space"]:
                     field.sow(sowing_field["seed"])
                     sow_completed = True
@@ -173,22 +174,22 @@ class SowingStep(Step):
 
 
 class BakingStep(Step):
-    def get_required_choice(self, game, player):
-        return ResourceTradingChoice(game, player, defaultdict(int), None, const.trigger_event_names.baking)
+    def get_required_choice(self, game):
+        return ResourceTradingChoice(game, self.player, defaultdict(int), None, const.trigger_event_names.baking)
 
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         selected_summary = choice.selected_summarized_candidate
         selected_candidate = choice.selected_candidate
-        player.change_state("", change=selected_summary)
+        self.player.change_state("", change=selected_summary)
 
 class FencingStep(Step):
-    def get_required_choice(self, game, player):
+    def get_required_choice(self, game):
         # TODO set source
-        return FencingChoice(game, player)
+        return FencingChoice(game, self.player)
     
-    def effect(self, game, player, choice):
+    def effect(self, game, choice):
         if choice.choice_value:
-            player.build_pastures(choice.choice_value)
+            self.player.build_pastures(choice.choice_value)
 
 class AnimalMarketStep(Step):
     pass

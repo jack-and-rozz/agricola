@@ -1,3 +1,4 @@
+# coding: utf-8
 import abc
 import itertools
 from collections import OrderedDict, Counter, defaultdict
@@ -374,6 +375,7 @@ class Player(EventGenerator):
     self.listen_for_event(DefaultResourceTrading(), const.trigger_event_names.resource_trading)
 
     self.people = people
+    self.turn_left = people
     self.people_avail = people_avail
 
     self.resources = dict(
@@ -624,6 +626,7 @@ class Player(EventGenerator):
 
   def start_round(self, round_idx):
     with EventScope(self, 'start_round'):
+      self.turn_left = self.people
       resources = self.future_resources[round_idx]
       for resource, amount in resources.items():
         #TODO trigger events
@@ -638,6 +641,7 @@ class Player(EventGenerator):
 
   def harvest(self):
     # harvest from field
+    
     for field in self._fields:
       kind = field.kind
       if field.harvest():
@@ -870,7 +874,8 @@ class Player(EventGenerator):
   def play_major_improvement(self, improvement, game):
     improvement.check_and_apply(self)
 
-    self.game.major_improvements.remove(improvement)
+    #self.game.major_improvements.remove(improvement)
+    game.major_improvements.remove(improvement)
     self.major_improvements.append(improvement)
 
   def get_state_dict(self):
@@ -961,3 +966,4 @@ class Player(EventGenerator):
       "fences": fences_state,
       "begging_cards": self.begging_cards
     }
+

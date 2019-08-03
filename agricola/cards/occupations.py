@@ -120,6 +120,7 @@ class BerryPicker(Occupation):
             result.append(choice)
         return result
 
+
 class CattleWhisperer(Occupation):
     deck = 'E'
     id = 201
@@ -468,7 +469,7 @@ class FieldWatchman(Occupation):
         result = []
         for choice_candidate in choice_candidates:
             choice = copy.deepcopy(choice_candidate)
-            choice['additional_steps'].append(PlowingStep())
+            choice['additional_steps'].append(PlowingStep(player))
             result.append(choice)
         return result
 
