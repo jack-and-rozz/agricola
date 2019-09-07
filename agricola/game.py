@@ -400,7 +400,6 @@ def play(game, ui, agent_processes, logdir):
   previous_error = ''
 
   while True:
-      #print("<SOR>, <EOR>, <EOS>",game.is_start_of_round, game.is_end_of_round, game.is_end_of_stage, len(game.step_stack), file=sys.stderr)
       if game.is_end_of_stage and len(game.step_stack) == 0:
           print('<End Stage %d>' % game.stage_idx)
           game.end_stage(player_order)
@@ -430,63 +429,7 @@ def play(game, ui, agent_processes, logdir):
           previous_error = str(e)
       ui.update_game(game)
       ui.action_successful()
-      #time.sleep(1)
-
-  exit(1)
-  # ##################  Main loop  ########################
-  # game.active_actions = [a for a in game.action_order[0]]
-  # previous_error = ""
-  # for stage_actions in game.action_order[1:]:
-  #   game.start_stage()
-  #   game.step_stack = []
-  #   for round_action in stage_actions:
-  #     player_order = game.start_round(round_action)
-
-  #     for i in itertools.cycle(player_order):
-
-  #       if game.is_end_of_round:
-  #         break
-  #       game.current_player_idx = i
-  #       game.prevous_error = ''
-  #       game_copy = copy.deepcopy(game)
-  #       player = game_copy.players[i]
-
-  #       # TODO: move optional trading step to proper position
-  #       # TODO: do this ResourceTradingStap occur even if he have no family?
-  #       game_copy.step_stack += [ActionSelectionStep(player), 
-  #                                ResourceTradingStep(player)]
-  #       try:
-  #         while len(game_copy.step_stack) > 0:
-  #           next_step = game_copy.step_stack.pop()
-  #           next_choice = next_step.get_required_choice(game_copy)
-  #           # print(game.stage_idx, game.round_idx, file=sys.stderr)
-  #           # print(True if next_choice and len(next_choice.candidates) != 1 else False, file=sys.stderr)
-  #           if next_choice and len(next_choice.candidates) != 1:
-  #             players_choice = communicate_with_player(game_copy, 
-  #                                                      next_choice, 
-  #                                                      previous_error,
-  #                                                      logdir, 
-  #                                                      agent_processes[i])
-  #             # read player's choice 
-  #             next_choice.read_players_choice(players_choice)
-
-  #           additional_steps = next_step.effect(game_copy, next_choice)
-  #           if additional_steps:
-  #             game_copy.step_stack += additional_steps
-  #           previous_error = ''
-  #         del game
-  #         game = game_copy
-  #       except AgricolaException as e:
-  #         game.revert_failed_step(i, e)
-  #         previous_error = str(e)
-  #         del game_copy
-
-  #       ui.update_game(game)
-  #       ui.action_successful()
-  #     game.end_round(player_order)
-  #   game.end_stage(player_order)
-  #   ##################  Main loop  ########################
-
+ 
   game.score = {}
   for i, p in enumerate(game.players):
     game.score[i] = p.score()
