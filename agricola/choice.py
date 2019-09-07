@@ -113,7 +113,7 @@ class FencingChoice(Choice):
     '''
     def read_players_choice(self, choice_dict):
         if "pastures" in choice_dict:
-            self.choice_value = list(map(lambda p_array: Pasture(list(map(lambda pasture: (pasture[1], pasture[0]), p_array))), choice_dict["pastures"]))
+            self.choice_value = list(map(lambda p_array: Pasture(list(map(lambda pasture: (pasture[1], pasture[0]), p_array)), self.player), choice_dict["pastures"]))
         else:
             self.choice_value = None
 
@@ -205,4 +205,95 @@ class SowingChoice(Choice):
         #self.selected_candidate_idx = random.choice(range(len(self.candidates)))
         self.selected_candidate_idx = len(self.candidates) - 1
         
+class AnimalManagementChoice(Choice):
+    def __init__(self, game, player, desc=None):
+        super(AnimalManagementChoice, self).__init__(game, player, desc=desc)
 
+    def _get_candidates(self):
+        choice_candidates = []
+
+        for container in self.player.get_animal_containers():
+            if len(choice_candidates) == 0:
+                choice_candidates.append(
+                    {
+                        "containers":[
+                            {
+                                "capacity": container.capacity(),
+                                "animals": {
+                                }
+                            }
+                        ],
+                        "animals_left": {
+                            "sheep": self.player.sheep,
+                            "boar": self.player.boar,
+                            "cattle": self.player.cattle
+                        }
+                    }
+                )
+                for animal in ["sheep", "boar", "cattle"]:
+                    for amount in range(1, min(getattr(self.player, animal) + 1, container.capacity() + 1)):
+                        choice_candidates.append(
+                            {
+                                "containers":[
+                                    {
+                                        "capacity": container.capacity(),
+                                        "animals": {
+                                            animal: amount
+                                        }
+                                    }
+                                ],
+                                "animals_left": {
+                                    "sheep": self.player.sheep - amount if animal == "sheep" else self.player.sheep,
+                                    "boar": self.player.boar - amount if animal == "boar" else self.player.boar,
+                                    "cattle": self.player.cattle - amount if animal == "cattle" else self.player.cattle
+                                }
+                            }
+                        )
+            else:
+                new_candidates = []
+                for candidate in choice_candidates:
+                    new_candidates.append(
+                        {
+                            "containers":[
+                                *candidate["containers"],
+                                {
+                                    "capacity": container.capacity(),
+                                    "animals": {
+                                    },
+                                }
+                            ],
+                            "animals_left": {
+                                "sheep": candidate["animals_left"]["sheep"],
+                                "boar": candidate["animals_left"]["boar"],
+                                "cattle": candidate["animals_left"]["cattle"]
+                            }
+                        }
+                        )
+                    for animal in ["sheep", "boar", "cattle"]:
+                        for amount in range(1, min(candidate["animals_left"][animal] + 1, container.capacity() + 1)):
+                            new_candidates.append(
+                                {
+                                    "containers":[
+                                        *candidate["containers"],
+                                        {
+                                            "capacity": container.capacity(),
+                                            "animals": {
+                                                animal: amount
+                                            }
+                                        }
+                                    ],
+                                    "animals_left": {
+                                        "sheep": candidate["animals_left"]["sheep"] - amount if animal == "sheep" else candidate["animals_left"]["sheep"],
+                                        "boar": candidate["animals_left"]["boar"] - amount if animal == "boar" else candidate["animals_left"]["boar"],
+                                        "cattle": candidate["animals_left"]["cattle"] - amount if animal == "cattle" else candidate["animals_left"]["cattle"]
+                                    }
+                                }
+                            )
+                choice_candidates = new_candidates
+
+        return choice_candidates
+
+    def read_players_choice(self, choice_dict):
+        # todo; ここでagentからの入力をもとにselected_candidate_idxを更新
+        #self.selected_candidate_idx = random.choice(range(len(self.candidates)))
+        self.selected_candidate_idx = len(self.candidates) - 1
