@@ -161,6 +161,14 @@ class AnimalContainer(object):
   def capacity(self):
     return 0
 
+  def get_state_dict(self):
+    return {
+      "capacity": self.capacity()
+    }
+
+class HouseAnimalContainer(AnimalContainer):
+  def capacity(self):
+    return 1
 
 class Stable(SingleSpaceObject, AnimalContainer):
   def capacity(self):
@@ -168,18 +176,17 @@ class Stable(SingleSpaceObject, AnimalContainer):
 
 
 class Pasture(SpatialObject, AnimalContainer):
-  def __init__(self, spaces):
+  def __init__(self, spaces, player):
     if isinstance(spaces[0], int):
       spaces = [spaces]
     self._spaces = spaces = list(set(spaces))
+    self.player = player
 
     # Check that the spaces in the pasture are connected.
     SpatialObject.check_connected_group(
       [SingleSpaceObject(s) for s in self.spaces])
 
     self.size = len(self.spaces)
-
-    self.n_stables = 0
 
     fences = []
     for s in self.spaces:
@@ -210,11 +217,10 @@ class Pasture(SpatialObject, AnimalContainer):
           return True
     return False
 
-  def add_stables(self, n=1):
-    self.n_stables += n
-
   def capacity(self):
-    return self.n_spaces * 2**(self.n_stables+1)
+    # count stable in pasture
+    n_stables = len([s for s in self.player._stables if (s in self)])
+    return len(self.spaces) * 2**(n_stables+1)
   
 RESOURCE_TYPES = ('food wood clay stone reed sheep boar cattle grain veg '
           'pastures fences fences_avail stables fenced_stables free_stables stables_avail '
@@ -394,7 +400,7 @@ class Player(EventGenerator):
     self._rooms = rooms = [Room(r) for r in rooms]
 
     pastures = pastures or []
-    self._pastures = pastures = [Pasture(p) for p in pastures]
+    self._pastures = pastures = [Pasture(p, self) for p in pastures]
     self.fences_avail = fences_avail
 
     stables = stables or []
@@ -448,6 +454,11 @@ class Player(EventGenerator):
     self.future_steps = defaultdict(list)
 
     self.pasture_capacity_modifier = 0
+
+    # animal container for hut
+    self.hut_animal_containers = [HouseAnimalContainer()]
+
+    self.animal_containers = []
 
     self.game = None
 
@@ -506,14 +517,13 @@ class Player(EventGenerator):
 
   @property
   def fenced_stables(self):
-    print(self.pastures)
-    return len([s for s in self._stables
-          if any(s in p for p in self._pastures)])
+    return [s for s in self._stables
+          if any(s in p for p in self._pastures)]
 
   @property
   def free_stables(self):
-    return len([s for s in self._stables
-          if not any(s in p for p in self.pastures)])
+    return [s for s in self._stables
+          if not any(s in p for p in self._pastures)]
 
   @property
   def fields(self):
@@ -608,7 +618,7 @@ class Player(EventGenerator):
     score += score_mapping(self.boar, [1, 3, 5, 7], [-1, 1, 2, 3, 4])
     score += score_mapping(self.cattle, [1, 2, 4, 6], [-1, 1, 2, 3, 4])
 
-    score += max(self.fenced_stables, 4)
+    score += max(len(self.fenced_stables), 4)
     score -= len(self.empty_spaces)
 
     score += 3 * self.people
@@ -724,6 +734,11 @@ class Player(EventGenerator):
       self._check_animal_capacity(animal_counts.values(), count, animal)
       self.animals[animal] += count
 
+  def animal_management(self, containers, animals_left):
+    self.animal_containers = containers
+    state_change = PlayerStateChange("release animals in animal_management", cost=animals_left)
+    state_change.check_and_apply(self)
+
   def change_state(self, description, change=None, prereq=None, cost=None):
     state_change = PlayerStateChange(description, change=change, prereq=prereq, cost=cost)
     state_change.check_and_apply(self)
@@ -799,9 +814,19 @@ class Player(EventGenerator):
 
     self._stables.extend(stables)
 
+  def get_animal_containers(self):
+    animal_containers = []
+    for pasture in self._pastures:
+      animal_containers.append(pasture)
+    for free_stable in self.free_stables:
+      animal_containers.append(free_stable)
+    for house_container in self.hut_animal_containers:
+      animal_containers.append(house_container)
+    return animal_containers
+
   def _check_animal_capacity(self, animal_counts, n_added, name):
     animal_counts = sorted(animal_counts)
-    capacities = [1] * (self.n_free_stables + 1)
+    capacities = [1] * (len(self.n_free_stables) + 1)
 
     pasture_capacities = [
       p.capacity() + self.pasture_capacity_modifier for p in self._pastures]
@@ -943,13 +968,13 @@ class Player(EventGenerator):
         "newborn": False
       })
 
-    print(self._pastures)
     pasture_state = list(map(lambda pasture: list(map(lambda space: (space[1], space[0]), pasture.spaces)), self._pastures))
 
     fences_state = list(map(lambda fence: list(map(lambda point: (point[1], point[0]), fence)), self.fences))
 
-    print("=--=--=--=-=-=--=-=-=--=")
-    print(pasture_state)
+    container_state = []
+    for container in self.get_animal_containers():
+      container_state.append(container.get_state_dict())
 
     return {
       "player_id": int(self.name),
@@ -964,6 +989,7 @@ class Player(EventGenerator):
       "families": families,
       "score": self.score(),
       "fences": fences_state,
-      "begging_cards": self.begging_cards
+      "begging_cards": self.begging_cards,
+      "animal_containers": container_state,
+      "animel_choice": self.animal_containers
     }
-

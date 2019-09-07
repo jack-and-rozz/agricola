@@ -8,7 +8,7 @@ from .choice import (
     OccupationChoice, SpaceChoice, MinorImprovementChoice,)
 from .cards import MinorImprovement as MinorImprovementCard
 from .cards import MajorImprovement as MajorImprovementCard
-from .step import BakingStep,SowingStep,ResourcePayingStep, RenovatingStep,PlayMinorImprovementStep, PlowingStep, PlayOccupationStep, HouseBuildingStep, StableBuildingStep, FencingStep, PlayMajorImprovementStep, TakingResourcesFromActionStep
+from .step import BakingStep,SowingStep,ResourcePayingStep, RenovatingStep,PlayMinorImprovementStep, PlowingStep, PlayOccupationStep, HouseBuildingStep, StableBuildingStep, FencingStep, PlayMajorImprovementStep, TakingResourcesFromActionStep, AnimalManagementStep
 from .player import Pasture
 from . import const
 from .utils import dbgprint
@@ -249,16 +249,20 @@ class ResourceMarket4P(ResourceAcquisition):
 class ReedBank(Accumulating):
     acc_amount = dict(reed=1)
 
+class SingleAnimalMarket(Accumulating):
+    def effect(self, player):
+        next_step = super(SingleAnimalMarket, self).effect(player)
+        return [AnimalManagementStep(player), *next_step]
 
-class SheepMarket(Accumulating):
+class SheepMarket(SingleAnimalMarket):
     acc_amount = dict(sheep=1)
 
 
-class PigMarket(Accumulating):
+class PigMarket(SingleAnimalMarket):
     acc_amount = dict(boar=1)
 
 
-class CattleMarket(Accumulating):
+class CattleMarket(SingleAnimalMarket):
     acc_amount = dict(cattle=1)
 
 class AnimalMarket(ResourceAcquisition):

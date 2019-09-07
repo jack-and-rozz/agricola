@@ -2,7 +2,7 @@ import abc
 import itertools
 from pprint import pprint
 from future.utils import with_metaclass
-from .choice import (ActionChoice, MinorImprovementChoice, SpaceChoice, OccupationChoice, FencingChoice, MajorImprovementChoice, PlowingChoice, StableBuildingChoice, HouseBuildingChoice, ResourceTradingChoice, SowingChoice)
+from .choice import (ActionChoice, MinorImprovementChoice, SpaceChoice, OccupationChoice, FencingChoice, MajorImprovementChoice, PlowingChoice, StableBuildingChoice, HouseBuildingChoice, ResourceTradingChoice, SowingChoice, AnimalManagementChoice)
 from . import const, cards
 from .utils import dotDict, recDotDefaultDict, dbgprint
 from collections import defaultdict
@@ -190,6 +190,16 @@ class FencingStep(Step):
     def effect(self, game, choice):
         if choice.choice_value:
             self.player.build_pastures(choice.choice_value)
+
+class AnimalManagementStep(Step):
+    def get_required_choice(self, game):
+        return AnimalManagementChoice(game, self.player, defaultdict(int))
+
+    def effect(self, game, choice):
+        selected_candidate = choice.selected_candidate
+        self.player.animal_management(selected_candidate["containers"], selected_candidate["animals_left"])
+
+
 
 class AnimalMarketStep(Step):
     pass
